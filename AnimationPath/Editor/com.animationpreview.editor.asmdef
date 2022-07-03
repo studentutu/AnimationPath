@@ -2,7 +2,7 @@
     "name": "com.animationpreview.editor",
     "rootNamespace": "EditorAnimationPreview",
     "references": [
-        "com.animationpreview.runtime"
+        "Unity.Timeline"
     ],
     "includePlatforms": [
         "Editor"

@@ -2,6 +2,8 @@
 using UnityEngine;
 using System.Collections.Generic;
 using UnityEditor;
+using UnityEngine.Playables;
+using UnityEngine.Timeline;
 
 namespace EditorAnimationPreview
 {
@@ -73,6 +75,22 @@ namespace EditorAnimationPreview
 
 			CloseSceneTool();
 			activeAnimationClip = AnimationWindowUsage.GetActiveAnimationClip();
+			var timeline = activeGameObject.GetComponentInParent<PlayableDirector>();
+			if (timeline != null)
+			{
+				foreach (var binding in timeline.playableAsset.outputs)
+				{
+					if (binding.outputTargetType == typeof(Animator) && binding.sourceObject != null)
+					{
+						FindClipFromBindingWhereSelectedObjectLies(binding);
+						if (activeAnimationClip != null)
+						{
+							break;
+						}
+					}
+				}
+			}
+
 			if (activeAnimationClip == null)
 			{
 				return;
@@ -83,6 +101,42 @@ namespace EditorAnimationPreview
 			AnimationUtility.onCurveWasModified -= OnCurveWasModified;
 			AnimationUtility.onCurveWasModified += OnCurveWasModified;
 		}
+
+		private static void FindClipFromBindingWhereSelectedObjectLies(PlayableBinding animatorBinding)
+		{
+			var animationTrack = animatorBinding.sourceObject as AnimationTrack;
+			var potentialClip = animationTrack?.infiniteClip;
+			if (potentialClip == null)
+			{
+				return;
+			}
+
+			String inPath = String.Empty;
+			var root = activeGameObject;
+			var findAnimator = activeGameObject.GetComponentInParent<Animator>();
+			findAnimator = findAnimator == null ? activeGameObject.GetComponent<Animator>() : findAnimator;
+			var findAnimation = activeGameObject.GetComponentInParent<Animation>();
+			findAnimation = findAnimation == null ? activeGameObject.GetComponent<Animation>() : findAnimation;
+
+			if (findAnimator == null && findAnimation == null)
+			{
+				return;
+			}
+
+			root = findAnimator == null ? findAnimation.gameObject : findAnimator.gameObject;
+			inPath = AnimationUtility.CalculateTransformPath(activeGameObject.transform,
+				root.transform);
+			Type inType = typeof(Transform);
+			AnimationCurve curveX = AnimationUtility.GetEditorCurve(potentialClip,
+				EditorCurveBinding.FloatCurve(inPath, inType, "m_LocalPosition.x"));
+			if (curveX == null || curveX.keys == null || curveX.length == 0)
+			{
+				return;
+			}
+
+			activeAnimationClip = potentialClip;
+		}
+
 
 		private static void CloseSceneTool()
 		{
@@ -114,7 +168,6 @@ namespace EditorAnimationPreview
 			activeRootGameObject = findAnimator == null ? findAnimation.gameObject : findAnimator.gameObject;
 			inPath = AnimationUtility.CalculateTransformPath(activeGameObject.transform,
 				activeRootGameObject.transform);
-
 			activeParentTransform = activeGameObject.transform.parent;
 
 			Type inType = typeof(Transform);
