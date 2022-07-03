@@ -9,7 +9,6 @@ namespace EditorAnimationPreview
 		public Vector3 position;
 		public Vector3 inTangent;
 		public Vector3 outTangent;
-		public int[] tangentMode;
 
 		public Vector3 worldPosition { get; set; }
 		public Vector3 worldInTangent { get; set; }
@@ -21,7 +20,6 @@ namespace EditorAnimationPreview
 			position = new Vector3(keyframeX.value, keyframeY.value, keyframeZ.value);
 			inTangent = new Vector3(keyframeX.inTangent, keyframeY.inTangent, keyframeZ.inTangent);
 			outTangent = new Vector3(keyframeX.outTangent, keyframeY.outTangent, keyframeZ.outTangent);
-			tangentMode = new[] {keyframeX.tangentMode, keyframeY.tangentMode, keyframeZ.tangentMode};
 		}
 
 		public static void CalcTangents(AnimationPathPoint pathPoint, AnimationPathPoint nextPathPoint,
@@ -113,93 +111,6 @@ namespace EditorAnimationPreview
 			float num = 0.0001f;
 			float num2 = (curve.Evaluate(time + num) - curve.Evaluate(time - num)) / (num * 2f);
 			return new Keyframe(time, curve.Evaluate(time), num2, num2);
-		}
-
-		public static void ModifyPointTangent(AnimationPathPoint pathPoint, AnimationPathPoint nextPathPoint,
-			Vector3 offset, bool isInTangent,
-			AnimationCurve curveX, AnimationCurve curveY, AnimationCurve curveZ)
-		{
-			Vector3 startTangent;
-			Vector3 endTangent;
-			CalcTangents(pathPoint, nextPathPoint, out startTangent, out endTangent);
-
-			float time;
-			Vector3 position;
-			Vector3 inTangent;
-			Vector3 outTangent;
-			int[] tangentMode;
-
-			float dx = nextPathPoint.time - pathPoint.time;
-			if (isInTangent)
-			{
-				time = nextPathPoint.time;
-				position = nextPathPoint.position;
-
-				endTangent += offset;
-				inTangent = (nextPathPoint.position - endTangent) / dx * 3f;
-				outTangent = nextPathPoint.outTangent;
-				tangentMode = nextPathPoint.tangentMode;
-			}
-			else
-			{
-				time = pathPoint.time;
-				position = pathPoint.position;
-
-				startTangent += offset;
-				inTangent = pathPoint.inTangent;
-				outTangent = (startTangent - pathPoint.position) / dx * 3f;
-				tangentMode = pathPoint.tangentMode;
-			}
-
-			int leftRight = isInTangent ? 0 : 1;
-			ModifyCurveAtKeyframe(curveX, time, position.x, inTangent.x, outTangent.x, tangentMode[0], leftRight);
-			ModifyCurveAtKeyframe(curveY, time, position.y, inTangent.y, outTangent.y, tangentMode[1], leftRight);
-			ModifyCurveAtKeyframe(curveZ, time, position.z, inTangent.z, outTangent.z, tangentMode[2], leftRight);
-		}
-
-		private static void ModifyCurveAtKeyframe(AnimationCurve curve, float time, float value, float inTangent,
-			float outTangent,
-			int tangentMode, int leftRight)
-		{
-			if (curve == null)
-			{
-				return;
-			}
-
-			Keyframe keyframe = new Keyframe(time, value, inTangent, outTangent);
-			keyframe.tangentMode = tangentMode;
-			ModifyPointTangentMode(ref keyframe, leftRight);
-
-			for (int j = 0; j < curve.length; j++)
-			{
-				if (Mathf.Approximately(curve.keys[j].time, keyframe.time))
-				{
-					curve.MoveKey(j, keyframe);
-					return;
-				}
-			}
-		}
-
-		private static void ModifyPointTangentMode(ref Keyframe key, int leftRight)
-		{
-			if (leftRight == 0)
-			{
-				CurveUtil.SetKeyTangentMode(ref key, 0, CurveUtil.TangentMode.Editable);
-				if (!CurveUtil.GetKeyBroken(key))
-				{
-					key.outTangent = key.inTangent;
-					CurveUtil.SetKeyTangentMode(ref key, 1, CurveUtil.TangentMode.Editable);
-				}
-			}
-			else
-			{
-				CurveUtil.SetKeyTangentMode(ref key, 1, CurveUtil.TangentMode.Editable);
-				if (!CurveUtil.GetKeyBroken(key))
-				{
-					key.inTangent = key.outTangent;
-					CurveUtil.SetKeyTangentMode(ref key, 0, CurveUtil.TangentMode.Editable);
-				}
-			}
 		}
 	}
 }

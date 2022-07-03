@@ -2,7 +2,9 @@
 using UnityEngine;
 using System.Collections.Generic;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine.Playables;
+using UnityEngine.SceneManagement;
 using UnityEngine.Timeline;
 
 namespace EditorAnimationPreview
@@ -38,10 +40,35 @@ namespace EditorAnimationPreview
 			EditorPrefs.SetBool(MenuItemString, isToggled);
 
 			Preview_Enabled = isToggled;
-			SceneView.onSceneGUIDelegate -= RenderSceneGUI;
+			EditorApplication.playModeStateChanged -= ClearAll;
+			EditorApplication.playModeStateChanged += ClearAll;
+			EditorSceneManager.activeSceneChanged -= ClearAll;
+			EditorSceneManager.activeSceneChanged += ClearAll;
+
+			SceneView.duringSceneGui -= RenderSceneGUI;
 			if (Preview_Enabled)
 			{
-				SceneView.onSceneGUIDelegate += RenderSceneGUI;
+				SceneView.duringSceneGui += RenderSceneGUI;
+			}
+		}
+
+		private static void ClearAll(Scene arg0, Scene arg1)
+		{
+			ClearAll();
+		}
+
+		private static void ClearAll(PlayModeStateChange obj)
+		{
+			ClearAll();
+		}
+
+		private static void ClearAll()
+		{
+			if (Selection.activeGameObject != activeGameObject)
+			{
+				animationPoints?.Clear();
+				activeAnimationClip = null;
+				SceneView.RepaintAll();
 			}
 		}
 
@@ -65,7 +92,10 @@ namespace EditorAnimationPreview
 					return;
 				}
 
-				DrawSceneViewGUI();
+				if (activeAnimationClip != null)
+				{
+					DrawSceneViewGUI();
+				}
 			}
 		}
 
@@ -75,20 +105,11 @@ namespace EditorAnimationPreview
 
 			CloseSceneTool();
 			activeAnimationClip = AnimationWindowUsage.GetActiveAnimationClip();
+
 			var timeline = activeGameObject.GetComponentInParent<PlayableDirector>();
 			if (timeline != null)
 			{
-				foreach (var binding in timeline.playableAsset.outputs)
-				{
-					if (binding.outputTargetType == typeof(Animator) && binding.sourceObject != null)
-					{
-						FindClipFromBindingWhereSelectedObjectLies(binding);
-						if (activeAnimationClip != null)
-						{
-							break;
-						}
-					}
-				}
+				CheckForTimelineClip(timeline);
 			}
 
 			if (activeAnimationClip == null)
@@ -102,10 +123,39 @@ namespace EditorAnimationPreview
 			AnimationUtility.onCurveWasModified += OnCurveWasModified;
 		}
 
-		private static void FindClipFromBindingWhereSelectedObjectLies(PlayableBinding animatorBinding)
+		private static void CheckForTimelineClip(PlayableDirector timeline)
 		{
-			var animationTrack = animatorBinding.sourceObject as AnimationTrack;
-			var potentialClip = animationTrack?.infiniteClip;
+			foreach (var binding in timeline.playableAsset.outputs)
+			{
+				if (binding.outputTargetType == typeof(Animator) && binding.sourceObject != null)
+				{
+					var animationTrack = binding.sourceObject as AnimationTrack;
+					FindClipFromBindingWhereSelectedObjectLies(animationTrack, animationTrack.infiniteClip);
+					if (activeAnimationClip != null)
+					{
+						return;
+					}
+
+					foreach (var clip in animationTrack.GetClips())
+					{
+						FindClipFromBindingWhereSelectedObjectLies(animationTrack, clip.animationClip);
+						if (activeAnimationClip != null)
+						{
+							return;
+						}
+					}
+				}
+			}
+		}
+
+		private static void FindClipFromBindingWhereSelectedObjectLies(AnimationTrack animationTrack,
+			AnimationClip potentialClip)
+		{
+			if (animationTrack == null)
+			{
+				return;
+			}
+
 			if (potentialClip == null)
 			{
 				return;
@@ -252,6 +302,36 @@ namespace EditorAnimationPreview
 
 				pathPoint.worldOutTangent = p1;
 				nextPathPoint.worldInTangent = p2;
+			}
+
+			DrawKeys(points);
+		}
+
+		private static void DrawKeys(List<AnimationPathPoint> points)
+		{
+			int numPos = points.Count;
+			Quaternion handleRotation = activeParentTransform != null
+				? activeParentTransform.rotation
+				: Quaternion.identity;
+			for (int i = 0; i < numPos; i++)
+			{
+				Handles.color = Color.green;
+				AnimationPathPoint pathPoint = points[i];
+				Vector3 position = pathPoint.worldPosition;
+				float pointHandleSize = HandleUtility.GetHandleSize(position) * 0.04f;
+				float pointPickSize = pointHandleSize * 0.7f;
+				Handles.Button(position, handleRotation, pointHandleSize, pointPickSize, Handles.DotHandleCap);
+				Handles.color = Color.grey;
+
+				if (i != 0)
+				{
+					Handles.DrawLine(position, pathPoint.worldInTangent);
+				}
+
+				if (i != numPos - 1)
+				{
+					Handles.DrawLine(position, pathPoint.worldOutTangent);
+				}
 			}
 		}
 
