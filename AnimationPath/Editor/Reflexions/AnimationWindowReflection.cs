@@ -6,13 +6,13 @@ using UnityEditor;
 
 namespace EditorAnimationPreview
 {
-	public class AnimationWindowReflect
+	public class AnimationWindowReflection
 	{
 		private Assembly m_Assembly;
 		private Type m_TypeAnimEditor;
 		private Type m_TypeAnimationWindowState;
 		private Type m_TypeAnimationWindowSelection;
-		private AnimationWindow m_FirstAnimationWindow;
+		private AnimationWindow m_AnimationWindow;
 
 		// The following are the objects for the first animation form
 		private object m_AnimEditor;
@@ -31,7 +31,7 @@ namespace EditorAnimationPreview
 		private MethodInfo m_StartRecordingethodInfo;
 		private FieldInfo m_onFrameRateChangeInfo;
 
-		private Assembly assembly
+		private Assembly EditorAssembly
 		{
 			get
 			{
@@ -45,26 +45,27 @@ namespace EditorAnimationPreview
 		}
 
 
-		private Type animationWindowStateType
+		private Type AnimationWindowStateType
 		{
 			get
 			{
 				if (m_TypeAnimationWindowState == null)
 				{
-					m_TypeAnimationWindowState = assembly.GetType("UnityEditorInternal.AnimationWindowState");
+					m_TypeAnimationWindowState = EditorAssembly.GetType("UnityEditorInternal.AnimationWindowState");
 				}
 
 				return m_TypeAnimationWindowState;
 			}
 		}
 
-		private Type animationWindowSelectionType
+		private Type AnimationWindowSelectionType
 		{
 			get
 			{
 				if (m_TypeAnimationWindowSelection == null)
 				{
-					m_TypeAnimationWindowSelection = assembly.GetType("UnityEditorInternal.AnimationWindowSelection");
+					m_TypeAnimationWindowSelection =
+						EditorAssembly.GetType("UnityEditorInternal.AnimationWindowSelection");
 				}
 
 				return m_TypeAnimationWindowSelection;
@@ -74,31 +75,39 @@ namespace EditorAnimationPreview
 		/// <summary>
 		/// Get the first animation window
 		/// </summary>
-		public AnimationWindow firstAnimationWindow
+		public AnimationWindow EditorAnimationWindow
 		{
 			get
 			{
-				if (m_FirstAnimationWindow == null)
+				if (m_AnimationWindow == null)
 				{
-					m_FirstAnimationWindow = AnimationWindow.GetWindow<AnimationWindow>();
+					var windows = Resources.FindObjectsOfTypeAll<EditorWindow>();
+					foreach (var window in windows)
+					{
+						if (window is AnimationWindow)
+						{
+							m_AnimationWindow = window as AnimationWindow;
+							break;
+						}
+					}
 				}
 
-				return m_FirstAnimationWindow;
+				return m_AnimationWindow;
 			}
 		}
 
-		private object animationWindowState
+		private object AnimationWindowState
 		{
 			get
 			{
 				if (m_AnimationWindowState == null)
 				{
-					var animationWindowStateInfo = m_FirstAnimationWindow.GetType()
+					var animationWindowStateInfo = m_AnimationWindow.GetType()
 						.GetProperty("state", BindingFlags.Instance | BindingFlags.NonPublic);
 
 					if (animationWindowStateInfo != null)
 					{
-						m_AnimationWindowState = animationWindowStateInfo.GetValue(m_FirstAnimationWindow);
+						m_AnimationWindowState = animationWindowStateInfo.GetValue(m_AnimationWindow);
 					}
 				}
 
@@ -107,17 +116,18 @@ namespace EditorAnimationPreview
 		}
 
 
-		private object animationWindowSelection
+		private object AnimationWindowSelection
 		{
 			get
 			{
 				if (m_AnimationWindowSelection == null)
 				{
 					PropertyInfo selectionInfo =
-						animationWindowStateType.GetProperty("selection", BindingFlags.Instance | BindingFlags.Public);
-					if (animationWindowState != null)
+						AnimationWindowStateType.GetProperty("selection",
+							BindingFlags.Instance | BindingFlags.Public);
+					if (AnimationWindowState != null)
 					{
-						m_AnimationWindowSelection = selectionInfo.GetValue(animationWindowState, null);
+						m_AnimationWindowSelection = selectionInfo.GetValue(AnimationWindowState, null);
 					}
 				}
 
@@ -125,17 +135,17 @@ namespace EditorAnimationPreview
 			}
 		}
 
-		private object animationWindowSelectionItem
+		private object AnimationWindowSelectionItem
 		{
 			get
 			{
 				if (m_AnimationWindowSelectionItem == null)
 				{
-					PropertyInfo selectionInfo = animationWindowStateType.GetProperty("selectedItem",
+					PropertyInfo selectionInfo = AnimationWindowStateType.GetProperty("selectedItem",
 						BindingFlags.Instance | BindingFlags.Public);
-					if (animationWindowState != null)
+					if (AnimationWindowState != null)
 					{
-						m_AnimationWindowSelectionItem = selectionInfo.GetValue(animationWindowState, null);
+						m_AnimationWindowSelectionItem = selectionInfo.GetValue(AnimationWindowState, null);
 					}
 				}
 
@@ -144,42 +154,40 @@ namespace EditorAnimationPreview
 		}
 
 		/// <summary>
-		/// whether the animation is playing
+		/// whether the animation is playing in window
 		/// </summary>
-		public bool playing
+		public bool Playing
 		{
-			get { return firstAnimationWindow.playing; }
+			get { return EditorAnimationWindow.playing; }
 		}
 
 		/// <summary>
-		/// Whether an animation is being recorded
+		/// Whether an animation is being recorded in window
 		/// </summary>
-		public bool recording
+		public bool Recording
 		{
-			get { return firstAnimationWindow.recording; }
+			get { return EditorAnimationWindow.recording; }
 		}
 
 		/// <summary>
 		/// current recorded time
 		/// </summary>
-		public float currentTime
+		public float CurrentTime
 		{
-			get { return firstAnimationWindow.time; }
+			get { return EditorAnimationWindow.time; }
 		}
 
 		/// <summary>
 		/// The animation root node object of the current object
 		/// </summary>
-		public GameObject activeRootGameObject
+		public GameObject ActiveRootGameObject
 		{
 			get
 			{
-				if (m_activeRootGameObjectInfo == null)
-				{
-					m_activeRootGameObjectInfo = animationWindowStateType
-						.GetProperty("activeRootGameObject", BindingFlags.Instance | BindingFlags.Public)
-						?.GetValue(animationWindowState) as GameObject;
-				}
+				m_activeRootGameObjectInfo = AnimationWindowStateType
+					.GetProperty("activeRootGameObject", BindingFlags.Instance | BindingFlags.Public)
+					?.GetValue(AnimationWindowState) as GameObject;
+
 
 				return m_activeRootGameObjectInfo;
 			}
@@ -189,19 +197,19 @@ namespace EditorAnimationPreview
 		/// <summary>
 		/// The currently active animation clip
 		/// </summary>
-		public AnimationClip activeAnimationClip
+		public AnimationClip ActiveAnimationClip
 		{
-			get { return firstAnimationWindow.animationClip; }
+			get { return EditorAnimationWindow.animationClip; }
 		}
 
-		private FieldInfo onClipSelectionChangedInfo
+		private FieldInfo OnClipSelectionChangedInfo
 		{
 			get
 			{
 				if (m_onClipSelectionChangedInfo == null)
 				{
 					m_onClipSelectionChangedInfo =
-						animationWindowSelectionType.GetField("onSelectionChanged",
+						AnimationWindowSelectionType.GetField("onSelectionChanged",
 							BindingFlags.Instance | BindingFlags.Public);
 				}
 
@@ -209,13 +217,13 @@ namespace EditorAnimationPreview
 			}
 		}
 
-		private FieldInfo onFrameRateChangeInfo
+		private FieldInfo OnFrameRateChangeInfo
 		{
 			get
 			{
 				if (m_onFrameRateChangeInfo == null)
 				{
-					m_onFrameRateChangeInfo = animationWindowStateType.GetField("onFrameRateChange",
+					m_onFrameRateChangeInfo = AnimationWindowStateType.GetField("onFrameRateChange",
 						BindingFlags.Instance | BindingFlags.Public);
 				}
 
@@ -226,16 +234,22 @@ namespace EditorAnimationPreview
 		/// <summary>
 		/// animation clip switching event
 		/// </summary>
-		public Action onClipSelectionChanged
+		public Action OnClipSelectionChanged
 		{
-			get { return (Action) onClipSelectionChangedInfo.GetValue(animationWindowSelection); }
-			set { onClipSelectionChangedInfo.SetValue(animationWindowSelection, value); }
+			get { return (Action) OnClipSelectionChangedInfo.GetValue(AnimationWindowSelection); }
+			set
+			{
+				OnClipSelectionChangedInfo.SetValue(AnimationWindowSelection, value);
+				m_AnimationWindowSelectionItem = null;
+				m_AnimationWindowSelection = null;
+				m_AnimationWindowState = null;
+			}
 		}
 
-		public Action<float> onFrameRateChange
+		public Action<float> OnFrameRateChange
 		{
-			get { return (Action<float>) onFrameRateChangeInfo.GetValue(animationWindowState); }
-			set { onFrameRateChangeInfo.SetValue(animationWindowState, value); }
+			get { return (Action<float>) OnFrameRateChangeInfo.GetValue(AnimationWindowState); }
+			set { OnFrameRateChangeInfo.SetValue(AnimationWindowState, value); }
 		}
 	}
 }

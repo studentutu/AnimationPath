@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace EditorAnimationPreview
 {
-	public static class AnimationWindowUtil
+	public static class AnimationWindowUsage
 	{
 		private static float s_PrevCurrentTime;
 		private static Func<float> s_GetCurrentTimeFunc;
@@ -16,13 +16,13 @@ namespace EditorAnimationPreview
 		/// </summary>
 		public static void RegisterTimeChangeListener(Action<float> currentTimeChange)
 		{
-			AnimationWindowReflect animationWindowReflect = GetAnimationWindowReflect();
-			if (!animationWindowReflect.firstAnimationWindow)
+			AnimationWindowReflection animationWindowReflection = GetAnimationWindowReflection();
+			if (!animationWindowReflection.EditorAnimationWindow)
 			{
 				return;
 			}
 
-			s_GetCurrentTimeFunc = () => { return animationWindowReflect.currentTime; };
+			s_GetCurrentTimeFunc = () => { return animationWindowReflection.CurrentTime; };
 			s_PrevCurrentTime = -1f;
 			s_CurrentTimeChange = currentTimeChange;
 			EditorApplication.update = (EditorApplication.CallbackFunction)
@@ -72,53 +72,48 @@ namespace EditorAnimationPreview
 		/// <returns></returns>
 		public static AnimationClip GetActiveAnimationClip()
 		{
-			AnimationWindowReflect animationWindowReflect = GetAnimationWindowReflect();
-			if (!animationWindowReflect.firstAnimationWindow)
+			AnimationWindowReflection animationWindowReflection = GetAnimationWindowReflection();
+			if (!animationWindowReflection.EditorAnimationWindow)
 			{
 				return null;
 			}
 
-			return animationWindowReflect.activeAnimationClip;
+			return animationWindowReflection.ActiveAnimationClip;
 		}
 
 		public static void SetOnFrameRateChange(Action<float> onFrameRateChangeAction, bool removeOnly = false)
 		{
-			AnimationWindowReflect animationWindowReflect = GetAnimationWindowReflect();
-			if (!animationWindowReflect.firstAnimationWindow)
+			AnimationWindowReflection animationWindowReflection = GetAnimationWindowReflection();
+			if (!animationWindowReflection.EditorAnimationWindow)
 			{
 				return;
 			}
 
-			Action<float> onFrameRateChange = animationWindowReflect.onFrameRateChange;
+			Action<float> onFrameRateChange = animationWindowReflection.OnFrameRateChange;
 			onFrameRateChange = (Action<float>) Delegate.RemoveAll(onFrameRateChange, onFrameRateChangeAction);
 			if (!removeOnly)
 			{
 				onFrameRateChange = (Action<float>) Delegate.Combine(onFrameRateChange, onFrameRateChangeAction);
 			}
 
-			animationWindowReflect.onFrameRateChange = onFrameRateChange;
+			animationWindowReflection.OnFrameRateChange = onFrameRateChange;
 		}
 
 		public static void Repaint()
 		{
-			AnimationWindowReflect animationWindowReflect = GetAnimationWindowReflect();
-			if (!animationWindowReflect.firstAnimationWindow)
+			AnimationWindowReflection animationWindowReflection = GetAnimationWindowReflection();
+			if (!animationWindowReflection.EditorAnimationWindow)
 			{
 				return;
 			}
 
-			animationWindowReflect.firstAnimationWindow.Repaint();
+			animationWindowReflection.EditorAnimationWindow.Repaint();
 		}
 
-		public static AnimationWindowReflect GetAnimationWindowReflect()
+		public static AnimationWindowReflection GetAnimationWindowReflection()
 		{
-			AnimationWindowReflect animationWindowReflect = new AnimationWindowReflect();
-			if (!animationWindowReflect.firstAnimationWindow)
-			{
-				Debug.Log("No animation editor！");
-			}
-
-			return animationWindowReflect;
+			AnimationWindowReflection animationWindowReflection = new AnimationWindowReflection();
+			return animationWindowReflection;
 		}
 	}
 }
